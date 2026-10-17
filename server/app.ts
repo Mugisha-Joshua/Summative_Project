@@ -1,0 +1,18 @@
+import express from 'express';
+import cors from 'cors';
+import auth from './routes/auth.js';
+import expenses from './routes/expenses.js';
+import budgets from './routes/budgets.js';
+import categories from './routes/categories.js';
+import admin from './routes/admin.js';
+
+export const app = express();
+app.use(cors());
+app.use(express.json());
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.use('/api/auth', auth);
+app.use('/api/expenses', expenses);
+app.use('/api/budgets', budgets);
+app.use('/api/categories', categories);
+app.use('/api/admin', admin);
+app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }));
