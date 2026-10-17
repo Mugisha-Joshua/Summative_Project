@@ -1,0 +1,1 @@
+import { Navigate } from 'react-router-dom'; import { ReactNode } from 'react'; import { useAuth } from '../auth'; export function ProtectedRoute({children,admin=false}:{children:ReactNode;admin?:boolean}) { const {user}=useAuth(); if(!user)return <Navigate to="/signin" replace/>; if(admin&&user.role!=='admin') return <Navigate to="/" replace/>; return <>{children}</>; }
