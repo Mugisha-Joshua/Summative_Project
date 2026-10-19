@@ -24,7 +24,8 @@ export async function connectDatabase() {
   database = client.db(process.env.MONGODB_DB || 'retain');
   const { users, expenses, budgets, categories } = collections();
   await Promise.all([users.createIndex({ email: 1 }, { unique: true }), expenses.createIndex({ userId: 1, date: -1 }), budgets.createIndex({ userId: 1, month: 1 }, { unique: true }), categories.createIndex({ id: 1 }, { unique: true })]);
-  await categories.bulkWrite(defaults.map(category => ({ updateOne: { filter: { id: category.id }, update: { $setOnInsert: category }, upsert: true } })));
+  const seedCategories = await categories.countDocuments() === 0 ? defaults : defaults.slice(0, 1);
+  await categories.bulkWrite(seedCategories.map(category => ({ updateOne: { filter: { id: category.id }, update: { $setOnInsert: category }, upsert: true } })));
   console.log('Connected to MongoDB Atlas.');
 }
 

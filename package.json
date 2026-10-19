@@ -10,7 +10,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check": "tsc -b --pretty false",
-    "test": "tsx --test tests/api.test.ts"
+    "test": "tsx --test tests/api.test.ts tests/state.test.ts",
+    "test:integration": "tsx --test tests/integration.test.ts",
+    "admin:promote": "tsx scripts/promote-admin.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,1 +1,11 @@
-export type Role = 'user' | 'admin'; export interface User { id: string; name: string; email: string; role: Role; createdAt: string; } export interface Category { id: string; name: string; color: string; } export interface Expense { id: string; title: string; amount: number; categoryId: string; date: string; paymentMethod: string; notes?: string; createdAt: string; } export interface Budget { month: string; amount: number; }
+export type Role = 'user' | 'admin';
+export interface User { id: string; name: string; email: string; role: Role; createdAt: string; }
+export interface Category { id: string; name: string; color: string; }
+export interface Expense { id: string; title: string; amount: number; categoryId: string; date: string; paymentMethod: string; notes?: string; createdAt: string; }
+export interface Budget { month: string; amount: number; }
+export type CategoryInsight = Category & { count: number; total: number };
+export type Insights = {
+  totals: { users: number; expenses: number; value: number; thisMonth: number };
+  categorySpending: CategoryInsight[]; topCategories: CategoryInsight[]; bottomCategories: CategoryInsight[];
+  recentExpenses: Expense[]; recentUsers: User[];
+};

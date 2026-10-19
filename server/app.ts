@@ -1,4 +1,5 @@
-import express from 'express';
+import express, { ErrorRequestHandler } from 'express';
+import { MongoServerError } from 'mongodb';
 import cors from 'cors';
 import auth from './routes/auth.js';
 import expenses from './routes/expenses.js';
@@ -16,3 +17,16 @@ app.use('/api/budgets', budgets);
 app.use('/api/categories', categories);
 app.use('/api/admin', admin);
 app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }));
+
+const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  if (error instanceof MongoServerError && error.code === 11000) {
+    res.status(409).json({ message: 'This record already exists.' }); return;
+  }
+  if (error instanceof SyntaxError && 'body' in error) {
+    res.status(400).json({ message: 'Request body must be valid JSON.' }); return;
+  }
+  // Do not return stack traces, credentials, or database connection details.
+  console.error('API request failed:', error instanceof Error ? error.name : 'Unknown error');
+  res.status(500).json({ message: 'The server could not complete your request. Please try again.' });
+};
+app.use(errorHandler);

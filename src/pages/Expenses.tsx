@@ -1,22 +1,65 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { api } from '../api';
 import { Category, Expense } from '../types';
-import { RootState, setFilters } from '../store';
-
-const money = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-const blank = { title: '', amount: '', categoryId: '', date: new Date().toISOString().slice(0, 10), paymentMethod: 'Card', notes: '' };
+import { RootState, selectFilteredExpenses, setExpenses } from '../store';
+import { ExpenseForm } from '../components/ExpenseForm';
+import { ExpenseFilters } from '../components/ExpenseFilters';
+import { ExpenseDetails } from '../components/ExpenseDetails';
+import { ExpenseList } from '../components/ExpenseList';
 
 export function Expenses() {
-  const dispatch = useDispatch(); const filters = useSelector((s: RootState) => s.filters);
-  const [items, setItems] = useState<Expense[]>([]); const [cats, setCats] = useState<Category[]>([]);
-  const [form, setForm] = useState(blank); const [editing, setEditing] = useState<string>(); const [detail, setDetail] = useState<Expense>();
-  const [error, setError] = useState(''); const [page, setPage] = useState(1); const [pages, setPages] = useState(1); const [total, setTotal] = useState(0);
-  const load = async (targetPage = page) => { const [result, categories] = await Promise.all([api.expenses({ page: targetPage, limit: 8, search: filters.search, category: filters.category, paymentMethod: filters.payment, dateFrom: filters.dateFrom, dateTo: filters.dateTo, sort: filters.sort, direction: filters.direction }), api.categories()]); setItems(result.data); setPages(Math.max(1, result.pages)); setTotal(result.total); setCats(categories); };
+  const dispatch = useDispatch(), filtered = useSelector(selectFilteredExpenses);
+  const filters = useSelector((state: RootState) => state.filters);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editing, setEditing] = useState<Expense>(), [detail, setDetail] = useState<Expense>();
+  const [error, setError] = useState(''), [message, setMessage] = useState('');
+  const [page, setPage] = useState(1), [loading, setLoading] = useState(true);
+  const pages = Math.max(1, Math.ceil(filtered.length / 8)), currentPage = Math.min(page, pages);
+  const items = filtered.slice((currentPage - 1) * 8, currentPage * 8);
   useEffect(() => { setPage(1); }, [filters]);
-  useEffect(() => { load(page); }, [page, filters]);
-  async function submit(e: FormEvent) { e.preventDefault(); try { await api.saveExpense({ ...form, id: editing, amount: +form.amount }); setForm(blank); setEditing(undefined); setError(''); await load(1); setPage(1); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to save expense.'); } }
-  function edit(expense: Expense) { setDetail(undefined); setEditing(expense.id); setForm({ ...expense, amount: String(expense.amount), notes: expense.notes || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  const categoryName = (id: string) => cats.find(c => c.id === id)?.name || 'Uncategorized';
-  return <><div className="title"><div><span className="eyebrow">EXPENSE MANAGEMENT</span><h1>Expenses</h1></div></div><section className="grid"><form className="panel" onSubmit={submit}><h2>{editing ? 'Edit expense' : 'Add an expense'}</h2>{error && <p className="error">{error}</p>}<label>Title<input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></label><label>Amount<input required min="0.01" step="0.01" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></label><label>Category<select required value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}><option value="">Choose a category</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Date<input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></label><label>Payment method<select value={form.paymentMethod} onChange={e => setForm({ ...form, paymentMethod: e.target.value })}><option>Card</option><option>Cash</option><option>Mobile Money</option><option>Bank Transfer</option></select></label><label>Notes<textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></label><button>{editing ? 'Update expense' : 'Add expense'}</button>{editing && <button type="button" className="secondary" onClick={() => { setEditing(undefined); setForm(blank); }}>Cancel</button>}</form><article className="panel"><h2>Find transactions</h2><div className="filters"><input placeholder="Search expenses" value={filters.search} onChange={e => dispatch(setFilters({ search: e.target.value }))} /><select value={filters.category} onChange={e => dispatch(setFilters({ category: e.target.value }))}><option value="all">All categories</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><select value={filters.payment} onChange={e => dispatch(setFilters({ payment: e.target.value }))}><option value="all">All payment methods</option><option>Card</option><option>Cash</option><option>Mobile Money</option><option>Bank Transfer</option></select><label>From<input type="date" value={filters.dateFrom} onChange={e => dispatch(setFilters({ dateFrom: e.target.value }))} /></label><label>To<input type="date" value={filters.dateTo} onChange={e => dispatch(setFilters({ dateTo: e.target.value }))} /></label><select value={filters.sort} onChange={e => dispatch(setFilters({ sort: e.target.value as 'date' | 'amount' }))}><option value="date">Sort by date</option><option value="amount">Sort by amount</option></select><button type="button" className="secondary" onClick={() => dispatch(setFilters({ direction: filters.direction === 'asc' ? 'desc' : 'asc' }))}>{filters.direction === 'asc' ? '↑ Ascending' : '↓ Descending'}</button></div><p className="results">{total} matching expense{total === 1 ? '' : 's'}</p><div className="list">{items.map(expense => <div className="expense" key={expense.id}><button className="expense-title" onClick={() => setDetail(expense)}>{expense.title}<small>{expense.date} · {categoryName(expense.categoryId)} · {expense.paymentMethod}</small></button><b>{money(expense.amount)}</b><button className="link" onClick={() => edit(expense)}>Edit</button><button className="link danger" onClick={async () => { if (confirm('Delete this expense?')) { await api.deleteExpense(expense.id); await load(page); } }}>Delete</button></div>)}{!items.length && <p>No expenses match these filters.</p>}</div>{pages > 1 && <div className="pagination"><button className="secondary" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {pages}</span><button className="secondary" disabled={page === pages} onClick={() => setPage(page + 1)}>Next</button></div>}</article></section>{detail && <div className="modal-backdrop" role="presentation" onMouseDown={() => setDetail(undefined)}><article className="modal" role="dialog" aria-modal="true" aria-label="Expense details" onMouseDown={e => e.stopPropagation()}><button className="link close" onClick={() => setDetail(undefined)}>Close ×</button><span className="eyebrow">EXPENSE DETAILS</span><h2>{detail.title}</h2><dl><dt>Amount</dt><dd>{money(detail.amount)}</dd><dt>Category</dt><dd>{categoryName(detail.categoryId)}</dd><dt>Date</dt><dd>{detail.date}</dd><dt>Payment method</dt><dd>{detail.paymentMethod}</dd><dt>Notes</dt><dd>{detail.notes || 'No notes added.'}</dd></dl><button onClick={() => edit(detail)}>Edit this expense</button></article></div>}</>;
+  useEffect(() => {
+    let active = true;
+    dispatch(setExpenses([]));
+    Promise.all([api.allExpenses(), api.categories()])
+      .then(([items, cats]) => { if (active) { dispatch(setExpenses(items)); setCategories(cats); } })
+      .catch(reason => { if (active) setError(reason.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [dispatch]);
+  async function reload() { dispatch(setExpenses(await api.allExpenses())); }
+  async function save(expense: Partial<Expense>) {
+    await api.saveExpense(expense);
+    setEditing(undefined); setPage(1); setMessage(expense.id ? 'Expense updated.' : 'Expense added.');
+    await reload();
+  }
+  async function remove(id: string) {
+    if (!confirm('Delete this expense?')) return;
+    try { setError(''); await api.deleteExpense(id); if (editing?.id === id) setEditing(undefined); await reload(); setMessage('Expense deleted.'); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to delete expense.'); }
+  }
+  function edit(expense: Expense) { setDetail(undefined); setEditing(expense); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  const categoryName = (id: string) => categories.find(category => category.id === id)?.name || 'Uncategorized';
+  return <>
+    <div className="title"><div><span className="eyebrow">EXPENSE MANAGEMENT</span><h1>Expenses</h1></div></div>
+    {error && <p className="error" role="alert">{error}</p>}
+    {message && <p className="success" role="status">{message}</p>}
+    <section className="grid">
+      <ExpenseForm categories={categories} editing={editing} onSave={save} onCancel={() => setEditing(undefined)} />
+      <article className="panel"><h2>Find transactions</h2><ExpenseFilters categories={categories} />
+        {loading ? <p role="status">Loading expenses…</p> : <>
+          <p className="results">{filtered.length} matching expense{filtered.length === 1 ? '' : 's'}</p>
+          <ExpenseList expenses={items} categoryName={categoryName} onOpen={setDetail} onEdit={edit} onDelete={remove} />
+          {!items.length && <p>No expenses match these filters.</p>}
+          {pages > 1 && <div className="pagination">
+            <button className="secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
+            <span>Page {currentPage} of {pages}</span>
+            <button className="secondary" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)}>Next</button>
+          </div>}
+        </>}
+      </article>
+    </section>
+    {detail && <ExpenseDetails expense={detail} categoryName={categoryName(detail.categoryId)}
+      onClose={() => setDetail(undefined)} onEdit={() => edit(detail)} />}
+  </>;
 }

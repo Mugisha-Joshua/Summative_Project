@@ -3,3 +3,5 @@ dist/
 server/data.json
 .env
 *.tsbuildinfo
+.env.*
+!.env.example
