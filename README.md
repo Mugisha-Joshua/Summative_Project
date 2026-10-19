@@ -2,7 +2,7 @@
 
 Retain is a full-stack, responsive expense manager built for the summative assessment. It lets users record expenses, control a monthly budget, understand spending patterns, and, for administrators, manage platform categories and inspect platform-wide insights.
 
-> **Deployment:** deploy the repository to Render/Railway (API) and Vercel/Netlify (frontend), then replace this line with the live public URL before submission.
+> **Deployment:** add the live Vercel URL here after completing the deployment steps below.
 
 ## Highlights
 
@@ -12,17 +12,18 @@ Retain is a full-stack, responsive expense manager built for the summative asses
 - Monthly budget setting with spent, remaining, and budget-status feedback
 - Personal dashboard: current-month spend, highest expense, category breakdown, recent expenses
 - Admin-only category create/delete and platform insight dashboard
-- REST API with JWT authorization and persistent JSON database storage (a zero-configuration database appropriate for local demonstration)
+- REST API with JWT authorization and persistent MongoDB Atlas storage
 - Accessible form labels, useful validation messages, responsive layout
 
 ## Technology
 
-React 19, TypeScript, Vite, React Router, React Context, Redux Toolkit, Node.js, Express, JWT, bcryptjs.
+React 19, TypeScript, Vite, React Router, React Context, Redux Toolkit, Node.js, Express, MongoDB Atlas, JWT, bcryptjs.
 
 ## Run locally
 
 ```bash
 npm install
+# Copy .env.example to .env and fill in your MongoDB Atlas values
 npm run server
 # in another terminal
 npm run dev
@@ -30,7 +31,7 @@ npm run dev
 
 Open `http://localhost:5173`. The first registered account is automatically an administrator, making it easy for the assessor to demonstrate both user and admin features. Later accounts are standard users.
 
-`npm run build` verifies the production frontend bundle. Data persists in `server/data.json` after the first write; deleting that local file resets development data.
+`npm run build` verifies the production frontend bundle. `npm test` verifies the API health endpoint and deployment configuration. Data persists in MongoDB Atlas. Never commit `.env` or the Atlas connection string.
 
 ## API overview
 
@@ -45,6 +46,12 @@ Open `http://localhost:5173`. The first registered account is automatically an a
 
 Protected requests require `Authorization: Bearer <JWT>`. The backend validates the requesting user for expense and budget access and requires the `admin` role for administrator endpoints.
 
-## Deployment note
+## Deployment
 
-The development proxy points `/api` to port 4000. In production, host the Express server and either serve the generated `dist` folder from it or configure the frontend host's `/api` rewrite to the API URL. Set a strong `JWT_SECRET` environment variable in production.
+1. Create an Atlas M0 database; add its connection string as `MONGODB_URI` and set `MONGODB_DB=retain`.
+2. Create a Render **Web Service** from this repository. Use build command `npm ci && npm run build`, start command `npm run server`, and set `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, and `NODE_ENV=production` as environment variables.
+3. Verify `https://YOUR-RENDER-SERVICE.onrender.com/api/health` returns `{ "status": "ok" }`.
+4. Create a Vercel project from this repository. Set `VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com/api`, build command `npm run build`, and output directory `dist`.
+5. Put the public Vercel URL at the top of this README before submission.
+
+The local Vite proxy handles `/api` during development. In production, `VITE_API_URL` directs the frontend to the deployed API. Set a strong, private `JWT_SECRET`; do not use the development fallback in production.
