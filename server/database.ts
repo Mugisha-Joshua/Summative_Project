@@ -1,3 +1,4 @@
+import dns from 'node:dns';
 import { Collection, Db, MongoClient } from 'mongodb';
 import { Budget, Category, Expense, User } from './types.js';
 
@@ -14,6 +15,10 @@ const defaults: Category[] = [
 export async function connectDatabase() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is required. Add it to your local .env file or host environment variables.');
+  // Some networks refuse SRV queries through their default DNS server. Atlas SRV
+  // records resolve correctly through these public resolvers; override with
+  // MONGODB_DNS_SERVERS if an organization requires different resolvers.
+  dns.setServers((process.env.MONGODB_DNS_SERVERS || '1.1.1.1,8.8.8.8').split(','));
   client = new MongoClient(uri);
   await client.connect();
   database = client.db(process.env.MONGODB_DB || 'retain');
