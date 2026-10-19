@@ -1,5 +1,11 @@
-import { Router } from 'express'; import bcrypt from 'bcryptjs'; import { db, save } from '../database.js'; import { tokenFor, uid } from '../auth.js';
-const router = Router(); const view = (u: typeof db.users[number]) => ({ id: u.id, name: u.name, email: u.email, role: u.role, createdAt: u.createdAt });
-router.post('/signup', async (req, res) => { const { name, email, password } = req.body; if (!name || !email || !password || password.length < 6) return res.status(400).json({ message: 'Name, email, and a 6-character password are required.' }); if (db.users.some(u => u.email === email.toLowerCase())) return res.status(409).json({ message: 'An account with this email already exists.' }); const user = { id: uid('usr'), name, email: email.toLowerCase(), passwordHash: await bcrypt.hash(password, 10), role: db.users.length === 0 ? 'admin' as const : 'user' as const, createdAt: new Date().toISOString() }; db.users.push(user); save(); res.status(201).json({ token: tokenFor(user), user: view(user) }); });
-router.post('/signin', async (req, res) => { const user = db.users.find(u => u.email === String(req.body.email).toLowerCase()); if (!user || !await bcrypt.compare(req.body.password || '', user.passwordHash)) return res.status(401).json({ message: 'Incorrect email or password.' }); res.json({ token: tokenFor(user), user: view(user) }); });
+import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import { collections } from '../database.js';
+import { tokenFor, uid } from '../auth.js';
+import { User } from '../types.js';
+
+const router = Router();
+const view = (user: User) => ({ id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt });
+router.post('/signup', async (req, res) => { const { name, email, password } = req.body; if (!name || !email || !password || password.length < 6) return res.status(400).json({ message: 'Name, email, and a 6-character password are required.' }); const users = collections().users; const normalizedEmail = String(email).toLowerCase(); if (await users.findOne({ email: normalizedEmail })) return res.status(409).json({ message: 'An account with this email already exists.' }); const user: User = { id: uid('usr'), name, email: normalizedEmail, passwordHash: await bcrypt.hash(password, 10), role: await users.countDocuments() === 0 ? 'admin' : 'user', createdAt: new Date().toISOString() }; await users.insertOne(user); res.status(201).json({ token: tokenFor(user), user: view(user) }); });
+router.post('/signin', async (req, res) => { const user = await collections().users.findOne({ email: String(req.body.email).toLowerCase() }); if (!user || !await bcrypt.compare(req.body.password || '', user.passwordHash)) return res.status(401).json({ message: 'Incorrect email or password.' }); res.json({ token: tokenFor(user), user: view(user) }); });
 export default router;
