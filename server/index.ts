@@ -1,2 +1,4 @@
 import { app } from './app.js';
-app.listen(4000, () => console.log('Retain API at http://localhost:4000'));
+import { connectDatabase } from './database.js';
+const port = Number(process.env.PORT) || 4000;
+connectDatabase().then(() => app.listen(port, () => console.log(`Retain API at http://localhost:${port}`))).catch(error => { console.error('MongoDB connection failed:', error); process.exit(1); });
